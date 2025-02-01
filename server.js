@@ -1,7 +1,18 @@
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const path = require('path');
 const app = express();
+
+// Serve static files (HTML, CSS, JS)
+app.use(express.static('public'));
+
+// Route for serving the game to different teams
+app.get('/team/:id', (req, res) => {
+    const teamId = req.params.id;
+    console.log(`Team ${teamId} is playing the game.`);
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Proxy endpoint to fetch and modify Wikipedia pages
 app.get('/wiki/*', async (req, res) => {
@@ -31,6 +42,32 @@ app.get('/wiki/*', async (req, res) => {
             }
         });
 
+        // Inject JavaScript to disable shortcuts globally
+        const disableShortcutsScript = `
+            <script>
+                // Disable Ctrl+F (search), F5 (reload), and other shortcuts
+                document.addEventListener('keydown', function(event) {
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+                        event.preventDefault();
+                        alert("Search function is disabled!");
+                    }
+                    if (event.key === 'F5' || (event.ctrlKey && event.key === 'r')) {
+                        event.preventDefault();
+                        alert("Page reload is disabled!");
+                    }
+                });
+
+                // Disable right-click
+                document.addEventListener('contextmenu', function(event) {
+                    event.preventDefault();
+                    alert("Right-click is disabled!");
+                });
+            </script>
+        `;
+
+        // Append the script to the end of the body
+        $('body').append(disableShortcutsScript);
+
         // Send the modified HTML to the client
         res.send($.html());
     } catch (error) {
@@ -38,9 +75,6 @@ app.get('/wiki/*', async (req, res) => {
         res.status(500).send('Error loading Wikipedia page');
     }
 });
-
-// Serve static files (HTML, CSS, JS)
-app.use(express.static('public'));
 
 // Start the server
 const PORT = process.env.PORT || 3000;
