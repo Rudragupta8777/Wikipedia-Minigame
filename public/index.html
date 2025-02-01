@@ -22,19 +22,15 @@
     <iframe id="wikiFrame" src="/wiki/Main_Page"></iframe>
 
     <script>
-        // Disable Ctrl+F and other shortcuts
+        // Disable F5 (reload) and Ctrl+R on the initial page
         document.addEventListener('keydown', function(event) {
-            if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-                event.preventDefault();
-                alert("Search function is disabled!");
-            }
             if (event.key === 'F5' || (event.ctrlKey && event.key === 'r')) {
                 event.preventDefault();
                 alert("Page reload is disabled!");
             }
         });
 
-        // Disable right-click
+        // Disable right-click on the initial page
         document.addEventListener('contextmenu', function(event) {
             event.preventDefault();
             alert("Right-click is disabled!");
