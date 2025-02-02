@@ -11,17 +11,19 @@ app.use(express.static('public'));
 app.get('/w/index.php', async (req, res) => {
     try {
         const searchQuery = req.query.search;
-        const searchUrl = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(searchQuery)}&title=Special:Search`;
+        const searchUrl = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(searchQuery)}`;
         const response = await axios.get(searchUrl);
         const $ = cheerio.load(response.data);
 
-        // Remove search elements since this is a search results page
-        $('#searchInput').remove();
-        $('#searchButton').remove();
-        $('#searchform').remove();
+        // Preserve the content structure
+        const contentDiv = $('#content');
+        
+        // Remove unwanted elements
         $('.vector-search-box').remove();
+        $('#p-search').remove();
+        $('#searchform').remove();
 
-        // Rewrite links
+        // Rewrite links to work with our proxy
         $('a[href^="/wiki/"]').each((index, element) => {
             const $element = $(element);
             const href = $element.attr('href');
@@ -41,29 +43,92 @@ app.get('/w/index.php', async (req, res) => {
             }
         });
 
-        // Add the same disable scripts
         const disableScript = `
             <script>
-                document.addEventListener('keydown', function(event) {
-                    if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-                        event.preventDefault();
-                        alert("Search function is disabled on this page!");
-                    }
-                    if (event.key === 'F5' || (event.ctrlKey && event.key === 'r')) {
-                        event.preventDefault();
-                        alert("Page reload is disabled!");
+                // Notify parent window to start timer if this isn't the main page
+                if (window.location.pathname !== '/wiki/Main_Page') {
+                    window.parent.postMessage('startTimer', '*');
+                }
+
+                // Function to disable all links
+                function disableAllLinks() {
+                    document.querySelectorAll('a').forEach(link => {
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            alert('Time is up! Links are disabled.');
+                        });
+                    });
+                }
+
+                // Listen for message from parent to disable links
+                window.addEventListener('message', function(event) {
+                    if (event.data === 'disableLinks') {
+                        disableAllLinks();
                     }
                 });
 
+                // Enhanced keyboard shortcut prevention
+                function preventShortcuts(event) {
+                    // Create an object with all the shortcuts to prevent
+                    const shortcuts = {
+                        'f': { ctrl: true, message: "Search function is disabled on this page😒!" },
+                        'r': { ctrl: true, message: "Page reload is disabled😒!" },
+                        'g': { ctrl: true, message: "Find next is disabled😒!" },
+                        'u': { ctrl: true, message: "View page source is disabled😒!" },
+                        'e': { ctrl: true, message: "Search tool is disabled😒!" },
+                        't': { ctrl: true, message: "Opening a new tab is not allowed😒!" },
+                        'F12': { special: true, message: "Developer tools are disabled😒!" },
+                        'F5': { special: true, message: "Page reload is disabled😒!" },
+                        'i': { ctrlAlt: true, message: "Developer tools are disabled😒!" },
+                        'j': { ctrlAlt: true, message: "Developer tools are disabled😒!" },
+                        'c': { ctrlAlt: true, message: "Developer tools are disabled😒!" }
+                    };
+
+                    const key = event.key;
+                    const ctrl = event.ctrlKey || event.metaKey;
+                    const alt = event.altKey;
+
+                    // Check if the key combination matches any of our shortcuts
+                    const shortcut = shortcuts[key];
+                    if (shortcut) {
+                        if (
+                            (shortcut.ctrl && ctrl && !alt) ||
+                            (shortcut.special && !ctrl && !alt) ||
+                            (shortcut.ctrlAlt && ctrl && alt)
+                        ) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            alert(shortcut.message);
+                            return false;
+                        }
+                    }
+                }
+
+                // Add the event listener only once in the capture phase
+                document.addEventListener('keydown', preventShortcuts, true);
+
+                // Disable right-click
                 document.addEventListener('contextmenu', function(event) {
                     event.preventDefault();
-                    alert("Right-click is disabled!");
+                    alert("Right-click is disabled😒!");
+                });
+
+                // Make sure the shortcuts are prevented even in iframes
+                window.addEventListener('load', function() {
+                    try {
+                        Array.from(document.getElementsByTagName('iframe')).forEach(function(iframe) {
+                            iframe.contentDocument.addEventListener('keydown', preventShortcuts, true);
+                        });
+                    } catch(e) {
+                        console.log('Cannot access iframe content');
+                    }
                 });
             </script>
         `;
 
         $('body').append(disableScript);
 
+        // Send the complete HTML
         res.send($.html());
     } catch (error) {
         console.error('Error handling search:', error);
@@ -116,23 +181,79 @@ app.get('/wiki/*', async (req, res) => {
             }
         });
 
-        // Add the disable scripts
         const disableScript = `
             <script>
-                document.addEventListener('keydown', function(event) {
-                    if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-                        event.preventDefault();
-                        alert("Search function is disabled on this page!");
-                    }
-                    if (event.key === 'F5' || (event.ctrlKey && event.key === 'r')) {
-                        event.preventDefault();
-                        alert("Page reload is disabled!");
+                // Notify parent window to start timer if this isn't the main page
+                if (window.location.pathname !== '/wiki/Main_Page') {
+                    window.parent.postMessage('startTimer', '*');
+                }
+
+                // Function to disable all links
+                function disableAllLinks() {
+                    document.querySelectorAll('a').forEach(link => {
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            alert('Time is up! Links are disabled.');
+                        });
+                    });
+                }
+
+                // Listen for message from parent to disable links
+                window.addEventListener('message', function(event) {
+                    if (event.data === 'disableLinks') {
+                        disableAllLinks();
                     }
                 });
 
+                // Enhanced keyboard shortcut prevention
+                document.addEventListener('keydown', function(event) {
+                    // Prevent Ctrl+F (Find)
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+                        event.preventDefault();
+                        alert("Search function is disabled on this page😒!");
+                    }
+                    // Prevent F5 or Ctrl+R (Reload)
+                    if (event.key === 'F5' || (event.ctrlKey && event.key === 'r')) {
+                        event.preventDefault();
+                        alert("Page reload is disabled😒!");
+                    }
+                    // Prevent Ctrl+G (Find Next)
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'g') {
+                        event.preventDefault();
+                        alert("Find next is disabled😒!");
+                    }
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'u') {
+                        event.preventDefault();
+                        alert("Developer tools are disabled😒!");
+                    }
+                    if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+                        event.preventDefault();
+                        alert("Search tool is Disabled😒!");
+                    }
+                    if ((event.ctrlKey || event.metaKey) && event.key === 't') {
+                        event.preventDefault();
+                        alert("Opening a new tab is not allowed😒!");
+                    }
+                    // Prevent F12 (Developer Tools)
+                    if (event.key === 'F12') {
+                        event.preventDefault();
+                        alert("Developer tools are disabled😒!");
+                    }
+                });
+
+                // Disable right-click
                 document.addEventListener('contextmenu', function(event) {
                     event.preventDefault();
-                    alert("Right-click is disabled!");
+                    alert("Right-click is disabled😒!");
+                });
+
+                // Additional protection against dev tools
+                document.addEventListener('keydown', function(event) {
+                    // For Mac: Command+Option+I or Command+Option+J or Command+Option+C
+                    if(event.metaKey && event.altKey && (event.key === 'i' || event.key === 'j' || event.key === 'c')) {
+                        event.preventDefault();
+                        alert("Developer tools are disabled😒!");
+                    }
                 });
             </script>
         `;
