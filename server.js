@@ -279,7 +279,7 @@ app.get('/team/:id', (req, res) => {
 //     console.log(`Server is running on http://localhost:${PORT}`);
 // });
 
-// Remove this:
+// Remove this when pushing it on vercel:
 // const PORT = process.env.PORT || 3000;
 // app.listen(PORT, () => {
 //     console.log(`Server is running on http://localhost:${PORT}`);
