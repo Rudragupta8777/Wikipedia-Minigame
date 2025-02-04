@@ -20,7 +20,7 @@ Wikipedia Racing Game is a challenging and fun game where players navigate from 
 
 ## 🛠️ Tech Stack  
 - **Frontend:** HTML, CSS, JavaScript  
-- **Backend & Deployment:** Render  
+- **Backend & Deployment:** Vercel  
 
 ## 🎯 Future Enhancements  
 - Multiplayer mode  
